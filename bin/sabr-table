@@ -1,0 +1,120 @@
+#!/bin/sh
+
+# Manage tables
+# Currently only accepts CSV files
+
+. LIBDIR/defaults
+
+relfile=${datadir}/relfile
+tabledir=${datadir}/tables
+headerdir=${datadir}/headers
+
+_usage() {
+	echo "sabr-table ${version}"
+	echo "sabr-table [add|up|rm|list] -f file name"
+	exit 1
+}
+
+_setup() {
+	mkdir -p ${tabledir}
+	mkdir -p ${headerdir}
+	[ ! -f ${relfile} ] && touch ${relfile}
+}
+
+_args() {
+	if test ! ${f}; then
+		echo "error: you must specify a file"
+		_usage
+	fi
+
+}
+
+_clean_table() {
+	t=$1
+	sed -e 's///g' -i .tmp ${t}
+	rm -f ${t}.tmp
+}
+
+_add_header() {
+	t=$1;h=$2
+	if [ -f ${h} ]; then
+		echo "header exists: ${h}"
+		echo "try 'sabr-table update'"
+		exit 1
+	else
+		echo "${t}": > ${h}
+		head -n 1 ${t} | awk -v RS='\n' -F ',' '{for(i=1;i<=NF;i++) print "\t"$i}' >> ${h}
+	fi
+}
+
+_add_table() {
+	f=$1;t=$2
+	if [ -f ${t} ]; then
+		echo "table exists: ${t}"
+		echo "try 'sabr-table update'"
+		exit 1
+	else
+		cp ${f} ${t}
+	fi
+}
+
+_append_refile() {
+	t=$1;h=$2
+	grep -q ${t} ${relfile} || cat ${h} >> ${relfile}
+}
+
+_add() {
+	_args
+	n=$1; shift
+	t=${tabledir}/${n}
+	h=${headerdir}/${n}
+	_setup
+	_add_table ${f} ${t}
+	_clean_table ${t}
+	_add_header ${t} ${h}
+	_rebuild_relfile
+	#_append_relfile ${t} ${h}
+	echo "added new table ${n}"
+}
+
+_rebuild_relfile() {
+	rm -rf ${relfile}
+	f=$(ls -rt ${headerdir})
+	for i in ${f};do
+		cat ${headerdir}/${i} >> ${relfile}
+	done
+}
+
+_rm() {
+	n=$1; shift
+	t=${tabledir}/${n}
+	h=${headerdir}/${n}
+	echo "removing ${n}"
+	rm -f ${h}
+	rm -f ${t}
+	_rebuild_relfile
+}
+
+_list() {
+	_setup
+	echo "headers:"
+	ls -rt ${headerdir}
+	echo "tables:"
+	ls -rt ${tabledir}
+}
+
+action=$1; shift
+while getopts ":f:" o; do
+	case "${o}" in
+		f) f=${OPTARG};;
+	esac
+done
+shift $((OPTIND-1))
+
+case ${action} in
+	add) _add $@;;
+	up) _up $@;;
+	rm) _rm $@;;
+	list) _list $@;;
+	*) _usage;;
+esac

@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# Add tables from a directory
+
+_add() {
+	d=$1;shift
+	cd ${d}
+	l=$(ls -rt *.csv)
+	for f in ${l}; do
+		s=$(echo ${f%.*} | tr 'A-Z' 'a-z')
+		sabr-table add -f ${f} ${s}
+	done
+}
+
+_add $@

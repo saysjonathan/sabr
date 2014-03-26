@@ -1,0 +1,21 @@
+#!/bin/sh
+
+. LIBDIR/defaults
+
+_usage() {
+	echo "sabr ${version}"
+	echo "available modules:"
+	echo "\tbootstrap"
+	echo "\tquery"
+	echo "\ttable"
+	echo "see 'sabr [module] help' for more info about each module"
+}
+
+action=$1; shift
+case "${action}" in
+	bootstrap) sabr-bootstrap $@;;
+	query) sabr-query $@;;
+	table) sabr-table $@;;
+	help) _usage;;
+	*) _usage;;
+esac

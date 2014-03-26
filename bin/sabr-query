@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Query the tables
+
+. LIBDIR/defaults
+
+_usage() {
+	echo "sabr-query ${version}"
+	echo "sabr-query query"
+}
+
+_query() {
+	q=$@; shift
+	if [ -f ${q} ]; then
+		awk -f LIBDIR/rel.awk ${q}
+	else
+		echo ${q} > .query
+		awk -f LIBDIR/rel.awk .query
+		rm -f .query
+	fi
+}
+
+_query $@

@@ -1,17 +1,15 @@
 # real.awk - awk relational query processor
+# Generously cribbed from qawk.awk from The Awk Programming Language
 
-BEGIN { 
-	readrel("DATADIR/relfile")
-}
-/./  { doquery($0) }
+BEGIN { readrel("DATADIR/relfile") }
+/./  { parseqattr($0) }
+END { doquery() }
 
 function readrel(f) {
 	while (getline <f > 0) {
 		if ($0 ~ /^[A-Za-z\/\.]+ *:/) {
 			gsub(/[^A-Za-z\/\.]+/, "", $0)
 			relname[++nrel] = $0
-		} else if ($0 ~ /^[ \t]*!/) {
-			cmd[nrel, ++ncmd[nrel]] = substr($0, index($0, "!")+1)
 		} else if ($0 ~ /^[ \t]*[A-Za-z1-9\_]+[ \t]*$/) {
 			attr[nrel, $1] = ++nattr[nrel]
 		} else if ($0 !~ /^[ \t]*$/) {
@@ -20,30 +18,28 @@ function readrel(f) {
 	}
 }
 
-function doquery(s, i, j) {
-	for (i in qattr)
-		delete qattr[i]
-	query = s
+function parseqattr(s, q) {
+	q = s
+	query[nq++] = q
 	while (match(s, /\$[A-Za-z]+/)) {
 		qattr[substr(s, RSTART+1, RLENGTH-1)] = 1
 		s = substr(s, RSTART+RLENGTH+1)
 	}
+}
+
+function doquery() {
 	for (i = 1; i <= nrel && !subset(qattr, attr, i); )
 		i++
 	if (i > nrel)
 		missing(qattr)
-	else {
+	for (n=0; n < length(query); n++) {
 		for (j in qattr)
-			gsub("\\$" j, "$" attr[i,j], query)
-		for (j = 1; j <= ncmd[i]; j++)
-			if (system(cmd[i, j]) != 0) {
-				print "command failed, query skipped\n", cmd[i,j]
-				return
-			}
-		awkcmd = sprintf("awk -F',' '%s' %s", query, relname[i])
-		printf("query: %s\n", awkcmd)
-		system(awkcmd)
+			gsub("\\$" j, "$" attr[i,j], query[n])
+		qfile = ".query.tmp"
+		system(sprintf("printf '%%s\n' '%s' >> %s", query[n], qfile))
 	}
+	system(sprintf("awk -F',' -f %s %s", qfile, relname[i]))
+	system(sprintf("rm -f %s", qfile))
 }
 
 function subset(q, a, r, i) {
@@ -60,4 +56,5 @@ function missing(x, i) {
 	for (i in x) {
 		print i
 	}
+	exit 1
 }
